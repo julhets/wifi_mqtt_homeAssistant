@@ -20,13 +20,15 @@ class HomeAssistantMqtt
 {
   public:
     HomeAssistantMqtt();
-    void initMqttClient(String mqttBroker, uint16_t mqttPort, String mqttUsername, String mqttPassword, String deviceUniqueId);
+    void initWifiAndMqttClient(String wifiSsid, String wifiPassword, String mqttBroker, uint16_t mqttPort, String mqttUsername, String mqttPassword);
+    void initWifiAndMqttClient(String wifiSsid, String wifiPassword, String mqttBroker, uint16_t mqttPort, String mqttUsername, String mqttPassword, String deviceUniqueId);
     void registerEndpoint(String endpointName, String endpointCode, String deviceHAClass, String unitOfMeasurement, bool isOut, bool isIn, std::function<void(String payload)> callback);
     void publishMessage(String endpointCode, String message);
     void loop();
   private:
     WiFiClient espClient;
     PubSubClient client;
+    void connectToWifi(String wifiSsid, String wifiPassword);
     void addCallback(String topic, std::function<void(String payload)> callback);
 };
 

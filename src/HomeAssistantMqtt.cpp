@@ -9,13 +9,57 @@
 #include "PubSubClient.h"
 #include "HomeAssistantMqtt.h"
 
+String deviceUniqueId;
+
 HomeAssistantMqtt::HomeAssistantMqtt()
 {
   client = PubSubClient(espClient);
 }
 
-void HomeAssistantMqtt::initMqttClient(String mqttBroker, uint16_t mqttPort, String mqttUsername, String mqttPassword, String deviceUniqueId)
+void HomeAssistantMqtt::initWifiAndMqttClient(
+    String wifiSsid,
+    String wifiPassword,
+    String mqttBroker,
+    uint16_t mqttPort,
+    String mqttUsername,
+    String mqttPassword)
 {
+  initWifiAndMqttClient(wifiSsid, wifiPassword, mqttBroker, mqttPort, mqttUsername, mqttPassword, "");
+}
+
+void HomeAssistantMqtt::connectToWifi(String wifiSsid, String wifiPassword) {
+    // connecting to a WiFi network
+  WiFi.begin(wifiSsid, wifiPassword);
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.println("Connecting to WiFi..");
+    delay(2000);
+  }
+  Serial.println("Connected to the WiFi network");
+  // end
+}
+
+void HomeAssistantMqtt::initWifiAndMqttClient(
+    String wifiSsid,
+    String wifiPassword,
+    String mqttBroker,
+    uint16_t mqttPort,
+    String mqttUsername,
+    String mqttPassword,
+    String deviceUniqueIdParam)
+{
+  connectToWifi(wifiSsid, wifiPassword);
+
+  // if the user didn't set the deviceUniqueId, let's set the macAddress as it;
+  if(deviceUniqueIdParam != "") {
+    deviceUniqueId = deviceUniqueIdParam;
+  } else {
+    deviceUniqueId = WiFi.macAddress();
+    deviceUniqueId.replace(":", "");
+  }
+  //end 
+
+  // mqtt part
   client.setBufferSize(1024);
   client.setServer(mqttBroker.c_str(), mqttPort);
 
@@ -33,6 +77,7 @@ void HomeAssistantMqtt::initMqttClient(String mqttBroker, uint16_t mqttPort, Str
       delay(2000);
     }
   }
+  //end
 }
 
 CallbackRegister callbacksRegisters[10];
@@ -42,7 +87,7 @@ static void customCallback(char *topic, byte *payload, unsigned int length)
 {
   String payloadAsString;
   String topicAsString = String(topic);
-  for (int i = 0; i < length; i++)
+  for (unsigned int i = 0; i < length; i++)
   {
     payloadAsString += (char)payload[i];
   }
@@ -60,11 +105,11 @@ static void customCallback(char *topic, byte *payload, unsigned int length)
 
 void HomeAssistantMqtt::addCallback(String topic, std::function<void(String payload)> callback)
 {
-  callbacksRegisters[nextCallbackArrayAvailableIndex] = { topic, callback };
+  callbacksRegisters[nextCallbackArrayAvailableIndex] = {topic, callback};
   nextCallbackArrayAvailableIndex = nextCallbackArrayAvailableIndex + 1;
 }
 
-void HomeAssistantMqtt::registerEndpoint(String deviceUniqueId, String endpointName, String endpointCode, String deviceHAClass, String unitOfMeasurement, bool isOut, bool isIn, std::function<void(String payload)> callback)
+void HomeAssistantMqtt::registerEndpoint(String endpointName, String endpointCode, String deviceHAClass, String unitOfMeasurement, bool isOut, bool isIn, std::function<void(String payload)> callback)
 {
   client.setCallback(customCallback);
   if (isIn)
@@ -85,11 +130,10 @@ void HomeAssistantMqtt::registerEndpoint(String deviceUniqueId, String endpointN
   }
 }
 
-void HomeAssistantMqtt::publishMessage(String deviceUniqueId, String endpointCode, String value)
+void HomeAssistantMqtt::publishMessage(String endpointCode, String value)
 {
   String stateTopic = "homeassistant/sensor/out/" + deviceUniqueId + "_" + endpointCode + "/state";
   String payload = "{\"" + endpointCode + "\": \"" + value + "\"}";
-  Serial.println(payload);
   client.publish(stateTopic.c_str(), payload.c_str());
 }
 
